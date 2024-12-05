@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
-
 import java.util.UUID;
 
 @Service
@@ -30,8 +29,8 @@ public class RedisService {
             String oldpassword = user.getPassword();
             if(oldpassword.equals(loginRequest.getPassword())){
                 String random= UUID.randomUUID().toString();
-                int timeout= 120;
-                jedis.setex(email,timeout,random);
+                int timeout= 300;
+                jedis.setex(random,timeout,email);
                 return  "Token : "+random;
             }
         }
@@ -48,40 +47,45 @@ public class RedisService {
         userRepository.save(user);
         return "user added succesfully";
     }
-    public ResponseEntity viewUser(int id,String token){
-
-        User user = userRepository.findById(id);
-        if(user!=null) {
-            String email = user.getEmail();
-            if (token.equals(jedis.get(email))) {
-                Response result = new Response();
-                result.setId(user.getId());
-                result.setEmail(user.getEmail());
-                result.setAge(user.getAge());
-                result.setDepartment(user.getDepartment());
-                result.setName(user.getName());
-                result.setMobile(user.getMobile());
-                return ResponseEntity.ok(result);
+    public ResponseEntity viewUser(String token){
+        if(token!=null) {
+            String email = jedis.get(token);
+            if (email != null) {
+                    User user = userRepository.findByEmail(email);
+                    if(user!=null) {
+                        Response result = new Response();
+                        result.setId(user.getId());
+                        result.setEmail(user.getEmail());
+                        result.setAge(user.getAge());
+                        result.setDepartment(user.getDepartment());
+                        result.setName(user.getName());
+                        result.setMobile(user.getMobile());
+                        return ResponseEntity.ok(result);
+                    }
+                    return ResponseEntity.ok("User Not Found");
             }
-            return ResponseEntity.ok("inavlid access token");
+            return ResponseEntity.ok("Invalid Access token ");
         }
-        return ResponseEntity.ok("User not found");
+        return ResponseEntity.ok("Empty Token");
     }
-    public String updateProfile(int id, UpdateProfile updateProfile,String token) {
-        User user = userRepository.findById(id);
-        String email = user.getEmail();
-        if (user != null) {
-            if(token.equals(jedis.get(email))) {
-                user.setEmail(updateProfile.getEmail());
-                user.setName(updateProfile.getName());
-                user.setAge(updateProfile.getAge());
-                user.setMobile(updateProfile.getMobile());
-                user.setDepartment(updateProfile.getDepartment());
-                userRepository.save(user);
-                return "user updated successfully";
+    public String updateProfile(UpdateProfile updateProfile,String token) {
+        if(token!=null) {
+            String email = jedis.get(token);
+            if (email != null) {
+                User user = userRepository.findByEmail(email);
+                if(user!=null) {
+                    user.setEmail(updateProfile.getEmail());
+                    user.setName(updateProfile.getName());
+                    user.setAge(updateProfile.getAge());
+                    user.setMobile(updateProfile.getMobile());
+                    user.setDepartment(updateProfile.getDepartment());
+                    userRepository.save(user);
+                    return "User updated successfully";
+                }
+                return "User Not Found";
             }
-            return "invalid access token";
+            return "user not found";
         }
-        return "user not found";
+        return "Empty token";
     }
 }
